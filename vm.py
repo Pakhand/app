@@ -19,7 +19,7 @@ import sys
 import socket
 from ftplib import FTP
 
-
+prog_name="Проверка штрих-кодов v.1.1"
 
 #Postgres
 userPG="postgres"
@@ -109,7 +109,7 @@ def Cloning(li1):
 
 
 #Выгрузка таблицы сбора
-def collect_down():
+def collect_down(flagrepeat = ""):
  if len(array_collect)>0:
    try:
       # Подключение к существующей базе данных
@@ -132,23 +132,25 @@ def collect_down():
       #print('Таблица сканированных кодов загружена. Количество строк:'+str(i))
       now = datetime.datetime.now() 
       collect_date = now.strftime("%Y-%m-%d %H:%M:%S")
-      status1_lb.config(text ="БД:"+collect_date)
+      status1_1_lb.config(text ="СБОР:"+collect_date)
 
 
    except (Exception, Error) as error:
-       print("Ошибка при работе с PostgreSQL", error)
-       sys.exit(1)
+       print("collect_down: ошибка при работе с PostgreSQL:", error)
+       #sys.exit(1)
    finally:
       if connection:
         cursor.close()
         connection.close()
         #print("Соединение с PostgreSQL закрыто")   
- t1 = threading.Timer(timer_collect_down, collect_down) # after 30 seconds
- t1.daemon = True
- t1.start()
+ if flagrepeat != "once":
+   t1 = threading.Timer(timer_collect_down, collect_down) # after 30 seconds
+   t1.daemon = True
+   t1.start()
 
 #Выгрузка таблицы лога
-def log_down():
+def log_down(flagrepeat = ""):
+ flagOK = False
  if len(array_log)>0:
    try:
       # Подключение к существующей базе данных
@@ -175,38 +177,66 @@ def log_down():
 
 
    except (Exception, Error) as error_log:
-       print("Ошибка при работе с PostgreSQL", error_log)
-       sys.exit(1)
+       print("log_down: ошибка при работе с PostgreSQL:", error_log)
+       #sys.exit(1)
    finally:
       if connection_log:
         cursor_log.close()
         connection_log.close()
         #print("Соединение с PostgreSQL закрыто")   
- t2 = threading.Timer(timer_log_down, log_down) # after 30 seconds
- t2.daemon = True
- t2.start()
+ else:
+   flagOK = True
+ if flagrepeat!="once":
+   t2 = threading.Timer(timer_log_down, log_down) # after 30 seconds
+   t2.daemon = True
+   t2.start()
+ 
 
 
 #Выгрузка лога фтп
 def update_log_ftp():
-   if len(array_log)>0:
+   if len(array_log)>0:      
+      #Выгрузка лога
+      log_down("once")  
       now = datetime.datetime.now() 
       log_date = now.strftime("%d-%m-%Y")
       ftp_name = log_date+'-'+comp_name+'.csv'
-      ftp_full_name = filepath + ftp_name      
+      ftp_full_name = filepath + ftp_name   
+      array_copy_log = Cloning(array_log)   
+      array_log.clear()
       with open(ftp_full_name, 'w', newline='') as f:
          writer = csv.writer(f,delimiter=";")
-         writer.writerows(array_log)
-      log_down()      
-      array_log.clear()
-      collect_down()
-      array_collect.clear()
+         writer.writerows(array_copy_log)
       #Отправка фтп файла
-      ftp = FTP(ftpserver)
-      ftp.login(ftpuser,ftppass)
-      with open(ftp_full_name, 'rb') as file:
-         ftp.storbinary('STOR '+ftp_name, file)
-      ftp.quit()
+      try:
+         ftp = FTP(ftpserver)
+         ftp.login(ftpuser,ftppass)
+         with open(ftp_full_name, 'rb') as file:
+            ftp.storbinary('STOR '+ftp_name, file)
+         ftp.quit()   
+      finally:
+         print("update_log_ftp: выгружен файл фтп: "+ftp_full_name)
+   if len(array_collect)>0:       
+      #Выгрузка сбора    
+      collect_down("once")
+      now = datetime.datetime.now() 
+      collect_date = now.strftime("%d-%m-%Y")
+      ftp_name = collect_date+'-collect-'+comp_name+'.csv'
+      ftp_full_name = filepath + ftp_name   
+      array_copy_collect = Cloning(array_collect)   
+      array_collect.clear()
+      with open(ftp_full_name, 'w', newline='') as f:
+         writer = csv.writer(f,delimiter=";")
+         writer.writerows(array_copy_collect)
+      #Отправка фтп файла
+      try:
+         ftp = FTP(ftpserver)
+         ftp.login(ftpuser,ftppass)
+         with open(ftp_full_name, 'rb') as file:
+            ftp.storbinary('STOR '+ftp_name, file)
+         ftp.quit()
+      finally:
+         print("update_log_ftp: выгружен файл фтп: "+ftp_full_name)   
       #print("Выгружен фтп")
 
 #Таймер выгрузки лога фтп
@@ -220,9 +250,46 @@ def ftp_log_down():
    t3.daemon = True
    t3.start()
 
-#Загрузка лога
+#Загрудка таблицы товаров
+def product_up():
+   # Подключение базы данных и заполнение таблиц продуктов
+   try:
+      # Подключение к существующей базе данных
+      connection = psycopg2.connect(user=userPG,
+                                  # пароль, который указали при установке PostgreSQL
+                                  password=passwordPG,
+                                  host=hostPG,
+                                  port=portPG,
+                                  database=databasePG)
+      # Курсор для выполнения операций с базой данных
+      cursor = connection.cursor()   
+      # Заполнение массива продуктов
+      # Выполнение SQL-запроса
+      cursor.execute("SELECT product_name, product_massa, product_barcode, product_stm, product_temperature from product;")
+      # Получить результат
+      for row in cursor:
+            array_product.append([row[0],row[1],row[2],row[3],row[4]])
+            #print(row[1])
+    #print(array_product[0] [0])
+
+    #record = cursor.fetchone()
+      now = datetime.datetime.now()     
+      bd_date = now.strftime("%Y-%m-%d %H:%M:%S")
+      status1_lb.config(text ="БД:"+bd_date)
+      #print("Данные таблицы - ", record, "\n")
+   except (Exception, Error) as error:
+    print("main: не заполнена таблица товаров. Ошибка при работе с PostgreSQL", error)
+    sys.exit(1)
+   finally:
+    if connection:
+        cursor.close()
+        connection.close()
+        print("main: таблица товаров заполнена. Соединение с PostgreSQL закрыто")
+
+
+#Загрузка таблицы сбора
 def collect_up():
-# Подключение базы данных и загрузка log
+# Подключение базы данных и загрузка таблицы сбора
    try:
     # Подключение к существующей базе данных
     connection = psycopg2.connect(user=userPG,
@@ -244,14 +311,15 @@ def collect_up():
 
     #record = cursor.fetchone()
     #print("Данные таблицы - ", record, "\n")
+    
    except (Exception, Error) as error:
-      print("Ошибка при работе с PostgreSQL", error)
-      sys.exit(1)
+      print("collect_up: таблица сбора не загружена, ошибка при работе с PostgreSQL", error)
+      #sys.exit(1)
    finally:
       if connection:
          cursor.close()
          connection.close()
-         #print("Соединение с PostgreSQL закрыто")
+         print("collect_up: таблица сбора обновлена, соединение с PostgreSQL закрыто")
 
 #Поиск в списке
 def chk_for_val(lst, key, val):
@@ -419,13 +487,13 @@ def product_add():
 
 
    except (Exception, Error) as error:
-       print("Ошибка при работе с PostgreSQL", error)
+       print("product_add: не заполнена таблица товаров, ошибка при работе с PostgreSQL", error)
        sys.exit(1)
    finally:
       if connection:
         cursor.close()
         connection.close()
-        #print("Соединение с PostgreSQL закрыто") 
+        print("product_add: таблица товаров заполнена, cоединение с PostgreSQL закрыто") 
 
 
 #def  comport_read(str,log_place):
@@ -617,49 +685,15 @@ try:
                timer_ftp_log_down = float(paramznach)                                                                                                                                                                       
             #print(item)
 except (Exception, Error) as error:
-    print("Ошибка при попытки чтения файла("+filenameconfig+"):", error)
+    print("Ошибка при попытки чтения файла настроек ("+filenameconfig+"):", error)
     sys.exit(1)
 
 
 
-# Подключение базы данных и заполнение таблиц кэша
-try:
-    # Подключение к существующей базе данных
-    connection = psycopg2.connect(user=userPG,
-                                  # пароль, который указали при установке PostgreSQL
-                                  password=passwordPG,
-                                  host=hostPG,
-                                  port=portPG,
-                                  database=databasePG)
-    # Курсор для выполнения операций с базой данных
-    cursor = connection.cursor()   
-    # Заполнение массива продуктов
-    # Выполнение SQL-запроса
-    cursor.execute("SELECT product_name, product_massa, product_barcode, product_stm, product_temperature from product;")
-    # Получить результат
-    for row in cursor:
-            array_product.append([row[0],row[1],row[2],row[3],row[4]])
-            #print(row[1])
-    #print(array_product[0] [0])
-
-    #record = cursor.fetchone()
-    #print("Данные таблицы - ", record, "\n")
-except (Exception, Error) as error:
-    print("Ошибка при работе с PostgreSQL", error)
-    sys.exit(1)
-finally:
-    if connection:
-        cursor.close()
-        connection.close()
-        #print("Соединение с PostgreSQL закрыто")
-
-
-#Загрузка таблицы сканированных ШК
-collect_up()
 
 
 window = Tk()
-window.title('Проверка штрих-кодов v.1')
+window.title(prog_name)
 window.geometry('1024x530')
 #window.attributes("-fullscreen", True)
 
@@ -774,34 +808,28 @@ cal_btn_tb = Button(
 cal_btn_tb.place(x=10, y=40, width=1002, height=45)
 
 cal_btn = Button(
-   text='Заполнить таблицу product',
+   text='Заполнить товары (csv)',
    command=product_add
 )
-cal_btn.place(x=830, y=480, width=100, height=30)
+cal_btn.place(x=720, y=470, width=150, height=30)
 
 cal_btn_col_up = Button(
    text='Загрузить собранные',
    command=collect_up
 )
-cal_btn_col_up.place(x=720, y=480, width=100,  height=30)
-
-cal_btn_col_down = Button(
-   text='Выгрузить собранные',
-   command=collect_down
-)
-cal_btn_col_down.place(x=610, y=480, width=100, height=30)
+cal_btn_col_up.place(x=565, y=470, width=150,  height=30)
 
 cal_btn_ftp_log_down = Button(
    text='Выгрузка фтп',
    command=update_log_ftp
 )
-cal_btn_ftp_log_down.place(x=500, y=480, width=100,  height=30)
+cal_btn_ftp_log_down.place(x=460, y=470, width=100,  height=30)
 
 cal_btn_exit = Button(
    text='Выход',
    command=exit_programm
 )
-cal_btn_exit.place(x=390, y=480, width=100,  height=30)
+cal_btn_exit.place(x=350, y=470, width=100,  height=30)
 
 
 
@@ -813,7 +841,12 @@ komment_lb.place(x=10, y=450, width=1000, height=25)
 status1_lb = Label(
          text="БД:"
          )         
-status1_lb.place(x=10, y=507, width=250, height=25)
+status1_lb.place(x=10, y=507, width=150, height=25)
+
+status1_1_lb = Label(
+         text="СБОР:"
+         )         
+status1_1_lb.place(x=170, y=507, width=150, height=25)
 
 status2_lb = Label(
          text=comp_name
@@ -825,23 +858,44 @@ status3_lb = Label(
          )         
 status3_lb.place(x=760, y=507, width=250, height=25)
 
+
+SetAdvBox = tk.BooleanVar()
+
+def SetAdvBox_command():
+    if SetAdvBox.get() == True:
+        cal_btn_ftp_log_down.place(x=460, y=470, width=100,  height=30)
+        cal_btn_col_up.place(x=565, y=470, width=150,  height=30)
+        cal_btn.place(x=720, y=470, width=150, height=30)
+    else:
+        cal_btn_ftp_log_down.place_forget()
+        cal_btn_col_up.place_forget()
+        cal_btn.place_forget()
+
+cal_btn_ftp_log_down.place_forget()
+cal_btn_col_up.place_forget()
+cal_btn.place_forget()
+
 LogAdvBox=tk.Checkbutton(window)
 ft = tkFont.Font(family='Times',size=10)
 LogAdvBox["font"] = ft
 LogAdvBox["justify"] = "center"
 LogAdvBox["text"] = "Расш. лог"
-LogAdvBox.place(x=10,y=480,width=70,height=25)
+LogAdvBox.place(x=10,y=470,width=70,height=25)
 LogAdvBox["offvalue"] = "0"
 LogAdvBox["onvalue"] = "1"
 #LogAdvBox["command"] = self.LogAdvBox_command
 
-SetAdvBox=tk.Checkbutton(window)
-SetAdvBox["justify"] = "center"
-SetAdvBox["text"] = "Доп. настройки"
-SetAdvBox.place(x=940,y=480,width=70,height=25)
-SetAdvBox["offvalue"] = "0"
-SetAdvBox["onvalue"] = "1"
-#SetAdvBox["command"] = self.SetAdvBox_command
+
+CKSetAdvBox=ttk.Checkbutton(window, text="Доп. функции", variable=SetAdvBox, command=SetAdvBox_command, width=120)
+CKSetAdvBox.place(x=900, y=470)
+
+
+
+#Загрузка таблицы товаров
+product_up()
+
+#Загрузка таблицы сканированных ШК
+collect_up()
 
 #Таймер выгрузки отсканированных ШК
 collect_down()
@@ -850,6 +904,6 @@ collect_down()
 log_down()
 
 #Таймер выгрузки лога фтп
-ftp_log_down
+ftp_log_down()
 
 window.mainloop()
