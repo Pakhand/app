@@ -278,13 +278,13 @@ def product_up():
       status1_lb.config(text ="БД:"+bd_date)
       #print("Данные таблицы - ", record, "\n")
    except (Exception, Error) as error:
-    print("main: не заполнена таблица товаров. Ошибка при работе с PostgreSQL", error)
+    print("main: не заполнена таблица товаров, ошибка при работе с PostgreSQL", error)
     sys.exit(1)
    finally:
     if connection:
         cursor.close()
         connection.close()
-        print("main: таблица товаров заполнена. Соединение с PostgreSQL закрыто")
+        print("main: таблица товаров заполнена, соединение с PostgreSQL закрыто")
 
 
 #Загрузка таблицы сбора
@@ -841,17 +841,17 @@ komment_lb.place(x=10, y=450, width=1000, height=25)
 status1_lb = Label(
          text="БД:"
          )         
-status1_lb.place(x=10, y=507, width=150, height=25)
+status1_lb.place(x=10, y=507, width=190, height=25)
 
 status1_1_lb = Label(
          text="СБОР:"
          )         
-status1_1_lb.place(x=170, y=507, width=150, height=25)
+status1_1_lb.place(x=210, y=507, width=190, height=25)
 
 status2_lb = Label(
          text=comp_name
          )         
-status2_lb.place(x=390, y=507, width=250, height=25)
+status2_lb.place(x=410, y=507, width=250, height=25)
 
 status3_lb = Label(
          text="ЛОГ:"
