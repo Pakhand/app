@@ -18,8 +18,9 @@ import tkinter.font as tkFont
 import sys
 import socket
 from ftplib import FTP
+import OPi.GPIO as GPIO
 
-prog_name="Проверка штрих-кодов v.1.1"
+prog_name="Проверка штрих-кодов v.1.2"
 
 #Postgres
 userPG="postgres"
@@ -785,7 +786,7 @@ def view_log(log,log_place,log_place_name):
        com_lb[i]["bg"]  = "#ff0000"
     log=log[2:len(log)]
     log_lb.config()
-    log_lb.config(text = log)
+    #log_lb.config(text = log)
     now = datetime.datetime.now() 
     log_date = now.strftime("%H:%M:%S")
     global codecount_error
@@ -905,5 +906,8 @@ log_down()
 
 #Таймер выгрузки лога фтп
 ftp_log_down()
+
+
+
 
 window.mainloop()
