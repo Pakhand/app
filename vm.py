@@ -838,7 +838,7 @@ def view_log(log,log_place,log_place_name):
     if (status_code=="2"): #Ошибка
        log_lb["bg"] = "#ff0000"              
        com_lb[i]["bg"]  = "#ff0000"
-       #Проверка критичного интервала ошибок 
+       #Проверка критичного интервала ошибок, запись текущего времени
        now = datetime.datetime.now() 
        defect_time_now = now.strftime("%Y-%m-%d %H:%M:%S")
        try:
