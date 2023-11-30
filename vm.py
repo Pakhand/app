@@ -18,7 +18,11 @@ import tkinter.font as tkFont
 import sys
 import socket
 from ftplib import FTP
-import OPi.GPIO as GPIO
+gpio_flag = False
+try:
+   import OPi.GPIO as GPIO
+except:
+   
 
 prog_name="Проверка штрих-кодов v.1.2"
 
@@ -55,6 +59,10 @@ codecount_error = {}
 codecount_povtor = {}
 com_lb = {}
 
+gpiostop_list = [] # Список портов GPIO для управления отключением
+gpiodefect_list = [] # Список портов GPIO для отбраковки
+gpiocounter_list = [] # Список портов GPIO получения информации по скорости подачи штрих-кодов для сканирования
+ 
 
 
 # Объявление массива продуктов
@@ -683,7 +691,17 @@ try:
             if (parname == "timer_log_down"):                    
                timer_log_down = float(paramznach)        
             if (parname == "timer_ftp_log_down"):                    
-               timer_ftp_log_down = float(paramznach)                                                                                                                                                                       
+               timer_ftp_log_down = float(paramznach)    
+            if (parname == "gpiostop"):                    
+               gpiostop = int(paramznach)    
+               gpiostop_list = gpiostop.split(",")
+            if (parname == "gpiodefect"):                    
+               gpiodefect = int(paramznach)    
+               gpiodefect_list = gpiodefect.split(",")
+            if (parname == "gpiocounter"):                    
+               gpiocounter = int(paramznach)    
+               gpiostop_list = gpiocounter.split(",")
+                                                                                                                                                                 
             #print(item)
 except (Exception, Error) as error:
     print("Ошибка при попытки чтения файла настроек ("+filenameconfig+"):", error)
@@ -710,6 +728,19 @@ com_lb[0] = Label(
 com_lb[0].place(x=10, y=90, width=120, height=100)
 com_lb[0]["bg"] = "#90ee90"
 
+#GPIO инициализация
+gpio_flag = False
+try:
+   GPIO.setwarnings(False)
+   GPIO.setmode(GPIO.BOARD)   # Код доски
+except(Exception, Error) as error:
+         print("Ошибка при попытки работы с GPIO портом:", error)
+finally:
+   gpio_flag = True
+
+
+
+
 #Проверка и открытие СОМ портов
 for i in range(len(port_com_list)):
    MySerial[i]=MSerialPort()
@@ -731,6 +762,18 @@ for i in range(len(port_com_list)):
    com_lb[i+1]["bg"] = "#C1CDCD"
 
    if (port_status is not None):
+      
+      if (gpio_flag):
+         #GPIO настройка номеров портов
+         try:
+            GPIO.setup(gpiodefect_list[i], GPIO.OUT)
+            GPIO.setup(gpiostop_list[i], GPIO.OUT)
+            GPIO.setup(gpiocounter_list[i], GPIO.IN)
+         except(Exception, Error) as error:
+            print("Ошибка при попытки работы с GPIO портом №"+str(i)+":", error)
+         
+
+
       #MySerial[i].init(window)
       MySerial[i].serialThread=threading.Thread(target=MySerial[i].serial_thread,
                                            args=(port_status,port_status.port,codecount_name[i+1]), daemon=True)
