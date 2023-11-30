@@ -21,7 +21,10 @@ from ftplib import FTP
 gpio_flag = False
 try:
    import OPi.GPIO as GPIO
-except:
+except(Exception, Error) as error:
+         print("Ошибка при попытки работы с GPIO портом:", error)
+finally:
+   gpio_flag = True
    
 
 prog_name="Проверка штрих-кодов v.1.2"
@@ -693,13 +696,13 @@ try:
             if (parname == "timer_ftp_log_down"):                    
                timer_ftp_log_down = float(paramznach)    
             if (parname == "gpiostop"):                    
-               gpiostop = int(paramznach)    
+               gpiostop = paramznach    
                gpiostop_list = gpiostop.split(",")
             if (parname == "gpiodefect"):                    
-               gpiodefect = int(paramznach)    
+               gpiodefect = paramznach    
                gpiodefect_list = gpiodefect.split(",")
             if (parname == "gpiocounter"):                    
-               gpiocounter = int(paramznach)    
+               gpiocounter = paramznach    
                gpiostop_list = gpiocounter.split(",")
                                                                                                                                                                  
             #print(item)
@@ -729,14 +732,14 @@ com_lb[0].place(x=10, y=90, width=120, height=100)
 com_lb[0]["bg"] = "#90ee90"
 
 #GPIO инициализация
-gpio_flag = False
-try:
-   GPIO.setwarnings(False)
-   GPIO.setmode(GPIO.BOARD)   # Код доски
-except(Exception, Error) as error:
-         print("Ошибка при попытки работы с GPIO портом:", error)
-finally:
-   gpio_flag = True
+if (gpio_flag):
+   try:
+      GPIO.setwarnings(False)
+      GPIO.setmode(GPIO.BOARD)   # Код доски
+   except(Exception, Error) as error:
+            print("Ошибка при попытки работы с GPIO портом:", error)
+   finally:
+      gpio_flag = True
 
 
 
@@ -766,9 +769,12 @@ for i in range(len(port_com_list)):
       if (gpio_flag):
          #GPIO настройка номеров портов
          try:
-            GPIO.setup(gpiodefect_list[i], GPIO.OUT)
-            GPIO.setup(gpiostop_list[i], GPIO.OUT)
-            GPIO.setup(gpiocounter_list[i], GPIO.IN)
+            if (gpiodefect_list[i]!='0'):
+               GPIO.setup(int(gpiodefect_list[i]), GPIO.OUT)
+            if (gpiostop_list[i]!='0'):
+               GPIO.setup(int(gpiostop_list[i]), GPIO.OUT)
+            if (gpiocounter_list[i]!='0'):   
+               GPIO.setup(int(gpiocounter_list[i]), GPIO.IN)
          except(Exception, Error) as error:
             print("Ошибка при попытки работы с GPIO портом №"+str(i)+":", error)
          
