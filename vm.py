@@ -65,7 +65,7 @@ com_lb = {}
 gpiostop_list = [] # Список портов GPIO для управления отключением
 gpiodefect_list = [] # Список портов GPIO для отбраковки
 gpiocounter_list = [] # Список портов GPIO получения информации по скорости подачи штрих-кодов для сканирования
- 
+defect_time_list = [] 
 
 
 # Объявление массива продуктов
@@ -700,7 +700,7 @@ try:
                gpiostop_list = gpiostop.split(",")
             if (parname == "gpiodefect"):                    
                gpiodefect = paramznach    
-               gpiodefect_list = gpiodefect.split(",")
+               gpiodefect_list = gpiodefect.split(",")               
             if (parname == "gpiocounter"):                    
                gpiocounter = paramznach    
                gpiostop_list = gpiocounter.split(",")
@@ -769,14 +769,16 @@ for i in range(len(port_com_list)):
       if (gpio_flag):
          #GPIO настройка номеров портов
          try:
-            if (gpiodefect_list[i]!='0'):
+            if (gpiodefect_list[i]!=''):
                GPIO.setup(int(gpiodefect_list[i]), GPIO.OUT)
-            if (gpiostop_list[i]!='0'):
+               GPIO.output(int(gpiodefect_list[i]),0)
+            if (gpiostop_list[i]!=''):
                GPIO.setup(int(gpiostop_list[i]), GPIO.OUT)
-            if (gpiocounter_list[i]!='0'):   
+               GPIO.output(int(gpiostop_list[i]),0)
+            if (gpiocounter_list[i]!=''):   
                GPIO.setup(int(gpiocounter_list[i]), GPIO.IN)
          except(Exception, Error) as error:
-            print("Ошибка при попытки работы с GPIO портом №"+str(i)+":", error)
+            print("Ошибка при попытки работы c GPIO портом №"+str(i)+":", error)
          
 
 
@@ -830,9 +832,27 @@ def view_log(log,log_place,log_place_name):
     if (status_code=="1"): #Повтор
        log_lb["bg"] = "#fad400"
        com_lb[i]["bg"]  = "#fad400"
+       #GPIO отбраковать товар
+       if (gpio_flag):
+          GPIO.output(gpiodefect_list[i-1],1)       
     if (status_code=="2"): #Ошибка
        log_lb["bg"] = "#ff0000"              
        com_lb[i]["bg"]  = "#ff0000"
+       #Проверка критичного интервала ошибок 
+       now = datetime.datetime.now() 
+       defect_time_now = now.strftime("%Y-%m-%d %H:%M:%S")
+       try:
+         defect_time_last=defect_time_list[i-1]
+       except: 
+         defect_time_last='' 
+       if (defect_time_last!=''):
+         difference = defect_time_now - defect_time_last
+         if (difference < 3):
+            print('Повторяющиеся ошибки в критичном интервале ['+str(difference)+'] на линии:'+port_com_place[i-1])
+            #GPIO отбраковать товар
+            if (gpio_flag):
+               GPIO.output(gpiodefect_list[i-1],1)
+       defect_time_list[i-1] = defect_time_now        
     log=log[2:len(log)]
     log_lb.config()
     #log_lb.config(text = log)
