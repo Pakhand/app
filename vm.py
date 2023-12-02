@@ -597,14 +597,35 @@ class MSerialPort:
       try:
         # Откройте последовательный порт
         self.ser = serial.Serial(port, bps, 5)
-
         if self.ser.is_open:
             print("--- Последовательный порт открыт ---"+str(self.ser.port))
+            global gpio_flag
+            if (gpio_flag==True):
+            #GPIO настройка номеров портов
+               igpio=port_com_list.index(port)             
+               try:
+                  #GPIO.setmode(GPIO.BOARD)   # Код доски
+                  if (gpiodefect_list[igpio]!=''):
+                     GPIO.setup(int(gpiodefect_list[igpio]), GPIO.OUT)
+                     GPIO.output(int(gpiodefect_list[igpio]),0)
+                     print(gpiodefect_list[igpio])
+                     #GPIO.setup(13, GPIO.OUT)
+                     #GPIO.output(13,0)
+                  if (gpiostop_list[i]!=''):
+                     GPIO.setup(int(gpiostop_list[igpio]), GPIO.OUT)
+                     GPIO.output(int(gpiostop_list[igpio]),0)
+                  if (gpiocounter_list[igpio]!=''):   
+                     GPIO.setup(int(gpiocounter_list[igpio]), GPIO.IN)
+               except(Exception, Error) as error:
+                  print("Ошибка при попытки работы c GPIO портом №"+str(igpio)+":", error)
+                  gpio_flag=False            
             return self.ser
-
       except Exception as e:
         print("--- Открытое исключение ---:", e)
-        return None   
+        return None         
+ 
+
+         
  
     def port_close(self):
        if self.is_open:
@@ -770,22 +791,6 @@ for i in range(len(port_com_list)):
 
    if (port_status is not None):
 
-      if (gpio_flag==True):
-         #GPIO настройка номеров портов
-         try:
-            if (gpiodefect_list[i]!=''):
-               GPIO.setup(int(gpiodefect_list[i]), GPIO.OUT)
-               GPIO.output(int(gpiodefect_list[i]),0)
-            if (gpiostop_list[i]!=''):
-               GPIO.setup(int(gpiostop_list[i]), GPIO.OUT)
-               GPIO.output(int(gpiostop_list[i]),0)
-            if (gpiocounter_list[i]!=''):   
-               GPIO.setup(int(gpiocounter_list[i]), GPIO.IN)
-         except(Exception, Error) as error:
-            print("Ошибка при попытки работы c GPIO портом №"+str(i)+":", error)
-            gpio_flag=False
-         
-
 
       #MySerial[i].init(window)
       MySerial[i].serialThread=threading.Thread(target=MySerial[i].serial_thread,
@@ -832,7 +837,7 @@ def view_log(log,log_place,log_place_name):
       igpio=port_com_list.index(log_place)
       i=igpio+1
       
-    
+    global gpio_flag
     status_code=log[0]
     if (status_code=="0"):  #Принят
        log_lb["bg"] = "#90ee90"
@@ -842,7 +847,7 @@ def view_log(log,log_place,log_place_name):
        com_lb[i]["bg"]  = "#fad400"
        #GPIO отбраковать товар
        if (gpio_flag):
-          GPIO.output(gpiodefect_list[igpio],1)       
+          GPIO.output(int(gpiodefect_list[igpio]),1)       
     if (status_code=="2"): #Ошибка
        log_lb["bg"] = "#ff0000"              
        com_lb[i]["bg"]  = "#ff0000"
@@ -858,8 +863,10 @@ def view_log(log,log_place,log_place_name):
          if (difference.seconds < 3):
             print('Повторяющиеся ошибки в критичном интервале ['+str(difference)+'] на линии:'+port_com_place[igpio])
             #GPIO отбраковать товар
-            if (gpio_flag):                           
-               GPIO.output(gpiodefect_list[igpio],1)
+            if (gpio_flag):               
+               GPIO.output(int(gpiodefect_list[igpio]),1)
+
+
        defect_time_now = now.strftime("%Y-%m-%d %H:%M:%S")
        defect_time_list[igpio] = defect_time_now        
     log=log[2:len(log)]
